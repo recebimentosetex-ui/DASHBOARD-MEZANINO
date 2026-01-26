@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import { InventoryItem } from '../types';
-import { Download, Upload, Plus, Trash2, CheckSquare, Square, Loader2, Pencil } from 'lucide-react';
+import { Download, Upload, Plus, Trash2, CheckSquare, Square, Loader2, Pencil, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface InventoryTableProps {
@@ -31,6 +31,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Estado do formulário
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
@@ -43,6 +44,23 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     if (s === 'PAGO') return 'bg-blue-100 text-blue-700';
     return 'bg-gray-100 text-gray-700';
   };
+
+  // --- Lógica de Pesquisa ---
+  const filteredData = useMemo(() => {
+    if (!searchTerm) return data;
+    const lowerTerm = searchTerm.toLowerCase();
+    
+    return data.filter((item) => {
+      return (
+        item.material.toLowerCase().includes(lowerTerm) ||
+        (item.lote && item.lote.toLowerCase().includes(lowerTerm)) ||
+        (item.sm && item.sm.toLowerCase().includes(lowerTerm)) ||
+        (item.responsavel && item.responsavel.toLowerCase().includes(lowerTerm)) ||
+        (item.status && item.status.toLowerCase().includes(lowerTerm)) ||
+        (item.maquinaFornecida && item.maquinaFornecida.toLowerCase().includes(lowerTerm))
+      );
+    });
+  }, [data, searchTerm]);
 
   // --- Importação Excel ---
   const handleImportClick = () => {
@@ -89,7 +107,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   // --- Exportação Excel ---
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
-    const exportData = data.map(item => ({
+    const exportData = filteredData.map(item => ({
       Material: item.material,
       Qtd: item.qtd,
       Status: item.status,
@@ -110,10 +128,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
   // --- Seleção ---
   const handleSelectAll = () => {
-    if (selectedIds.size === data.length) {
+    if (selectedIds.size === filteredData.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(data.map(item => item.id)));
+      setSelectedIds(new Set(filteredData.map(item => item.id)));
     }
   };
 
@@ -202,24 +220,36 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
            </div>
          </div>
          
-         <div className="flex flex-wrap gap-3">
+         <div className="flex flex-col md:flex-row flex-wrap gap-3 w-full md:w-auto">
+            {/* Campo de Pesquisa */}
+            <div className="relative group w-full md:w-64 order-first md:order-none">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 group-focus-within:text-green-600 transition-colors" />
+              <input
+                type="text"
+                placeholder="Pesquisar..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none transition-all"
+              />
+            </div>
+
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx, .xls" className="hidden" />
             
-            <button onClick={handleOpenNewModal} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm">
+            <button onClick={handleOpenNewModal} className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm transition-colors whitespace-nowrap">
               <Plus className="w-4 h-4 mr-2" /> Novo Item
             </button>
 
             {selectedIds.size > 0 && (
-              <button onClick={handleBulkDelete} className="flex items-center px-4 py-2 bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-200 shadow-sm">
+              <button onClick={handleBulkDelete} className="flex items-center justify-center px-4 py-2 bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-200 shadow-sm transition-colors whitespace-nowrap">
                 <Trash2 className="w-4 h-4 mr-2" /> Excluir ({selectedIds.size})
               </button>
             )}
 
-            <button onClick={handleImportClick} className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm">
+            <button onClick={handleImportClick} className="flex items-center justify-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors whitespace-nowrap">
               <Upload className="w-4 h-4 mr-2" /> Importar
             </button>
             
-            <button onClick={handleExport} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm">
+            <button onClick={handleExport} className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm transition-colors whitespace-nowrap">
               <Download className="w-4 h-4 mr-2" /> Exportar
             </button>
          </div>
@@ -242,7 +272,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {data.map((item) => (
+              {filteredData.map((item) => (
                 <tr key={item.id} className={`hover:bg-gray-50 ${selectedIds.has(item.id) ? 'bg-green-50' : ''}`}>
                   <td className="px-6 py-4">
                     <button onClick={() => handleSelectOne(item.id)}>
@@ -270,7 +300,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               ))}
             </tbody>
           </table>
-          {data.length === 0 && !isLoading && <div className="p-8 text-center text-gray-400">Nenhum item encontrado.</div>}
+          {filteredData.length === 0 && !isLoading && (
+            <div className="p-8 text-center text-gray-400">
+              {searchTerm ? 'Nenhum item encontrado para esta pesquisa.' : 'Nenhum item cadastrado.'}
+            </div>
+          )}
         </div>
       </div>
 
