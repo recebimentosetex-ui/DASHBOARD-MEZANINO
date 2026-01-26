@@ -24,10 +24,6 @@ const App: React.FC = () => {
       if (error) {
         console.error('Error fetching inventory:', error);
       } else {
-        // Map DB snake_case columns to camelCase if necessary, 
-        // but here we align types manually or rename in select. 
-        // For simplicity, we assume DB columns match mapped logic in fetching or we adjust.
-        // Actually, let's map it safely.
         const mappedData: InventoryItem[] = (data || []).map((row: any) => ({
           id: row.id,
           category: row.category,
@@ -145,7 +141,7 @@ const App: React.FC = () => {
       case TabView.INK:
         return (
           <InventoryTable 
-            title="Estoque de Tintas" 
+            title="Estoque de Tinta" 
             type="STANDARD" 
             category="INK"
             data={inkData}
@@ -173,7 +169,7 @@ const App: React.FC = () => {
       case TabView.PACKAGING:
         return (
           <InventoryTable 
-            title="Estoque de Embalagens" 
+            title="Estoque de Embalagem" 
             type="PACKAGING" 
             category="PACKAGING"
             data={packagingData}

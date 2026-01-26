@@ -310,8 +310,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                         e.stopPropagation();
                         handleDeleteOne(item.id);
                       }}
-                      className="p-2 bg-white border border-gray-200 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all shadow-sm"
-                      title="Excluir item"
+                      className="p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 hover:bg-red-100 transition-all shadow-sm"
+                      title="Excluir item permanentemente"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -13,7 +13,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
     { id: TabView.DASHBOARD, label: 'Dashboard', icon: LayoutDashboard },
     { id: TabView.INK, label: 'Estoque de Tinta', icon: PenTool },
     { id: TabView.FIBER, label: 'Estoque de Fibras', icon: Sprout },
-    { id: TabView.PACKAGING, label: 'Estoque de Embalagens', icon: Package },
+    { id: TabView.PACKAGING, label: 'Estoque de Embalagem', icon: Package },
   ];
 
   return (
