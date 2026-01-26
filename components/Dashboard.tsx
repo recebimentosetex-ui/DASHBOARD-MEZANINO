@@ -3,17 +3,18 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
   PieChart, Pie, Label
 } from 'recharts';
-import { Layers, Droplet, ClipboardCheck, Calendar } from 'lucide-react';
+import { Layers, Droplet, ClipboardCheck, Calendar, Package } from 'lucide-react';
 import { StandardInventoryItem } from '../types';
 
 interface DashboardProps {
   fiberData: StandardInventoryItem[];
   inkData: StandardInventoryItem[];
+  packagingData: StandardInventoryItem[];
 }
 
 const COLORS = ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#818CF8', '#F472B6'];
 
-const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData }) => {
+const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData, packagingData }) => {
   const currentMonthName = new Date().toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
   
   // --- Calculations ---
@@ -33,9 +34,14 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData }) => {
       return s === 'EM ESTOQUE';
     }).length;
 
-    // 3. Saídas Fibras (Total Consumption) - Card 3
+    // 3. Total Packaging Lines (Quantidade de Linhas de Embalagem) - Card Novo
+    const totalPackagingLines = packagingData.filter(item => {
+      const s = item.status ? item.status.trim().toUpperCase() : '';
+      return s === 'EM ESTOQUE';
+    }).length;
+
+    // 4. Saídas Fibras (Total Consumption) - Card 3
     // REQUISITO: Somar QTD apenas de itens com STATUS "PAGO" na aba ESTOQUE DE FIBRAS.
-    // REQUISITO: Não depender de data (pegar todo o histórico).
     const totalFiberOutput = fiberData.reduce((acc, item) => {
       const s = item.status ? item.status.trim().toUpperCase() : '';
       if (s === 'PAGO') {
@@ -44,8 +50,8 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData }) => {
       return acc;
     }, 0);
 
-    return { totalFiberLines, totalInkLines, totalFiberOutput };
-  }, [fiberData, inkData]);
+    return { totalFiberLines, totalInkLines, totalPackagingLines, totalFiberOutput };
+  }, [fiberData, inkData, packagingData]);
 
   // Bar Chart Data: Quantity per Room (Sala) - Baseado em Fibras
   const barChartData = useMemo(() => {
@@ -137,7 +143,7 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData }) => {
       <div className="flex justify-between items-center mb-8">
         <div>
           <h4 className="text-gray-500 text-sm font-medium uppercase tracking-wide">Bem-vindo ao Portal de Dados</h4>
-          <h1 className="text-3xl font-bold text-slate-900 mt-1">Dashboard de Fibras</h1>
+          <h1 className="text-3xl font-bold text-slate-900 mt-1">Dashboard Integrado</h1>
         </div>
         <div className="bg-white border border-gray-200 px-4 py-2 rounded-lg flex items-center shadow-sm">
           <Calendar className="w-4 h-4 text-gray-500 mr-2" />
@@ -145,38 +151,49 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData }) => {
         </div>
       </div>
 
-      {/* Top Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      {/* Top Cards - Agora com 4 colunas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Card 1 - Total Fibra Count */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 mr-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 mr-4 shrink-0">
             <Layers className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-400 text-sm font-medium">Total Estoque Fibras</p>
-            <p className="text-3xl font-bold text-slate-800">{stats.totalFiberLines}</p>
+            <p className="text-gray-400 text-xs font-bold uppercase">Estoque Fibras</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalFiberLines}</p>
           </div>
         </div>
 
-        {/* Card 2 - Total Ink Count (Linhas da aba Tinta) */}
+        {/* Card 2 - Total Ink Count */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-green-600 mr-4">
+          <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center text-green-600 mr-4 shrink-0">
             <Droplet className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-400 text-sm font-medium">Total Estoque Tintas</p>
-            <p className="text-3xl font-bold text-slate-800">{stats.totalInkLines}</p>
+            <p className="text-gray-400 text-xs font-bold uppercase">Estoque Tintas</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalInkLines}</p>
           </div>
         </div>
 
-        {/* Card 3 - Saídas Fibras */}
+        {/* Card 3 - Total Packaging Count (Novo) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center">
-          <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center text-yellow-600 mr-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 mr-4 shrink-0">
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-gray-400 text-xs font-bold uppercase">Estoque Embalagem</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalPackagingLines}</p>
+          </div>
+        </div>
+
+        {/* Card 4 - Saídas Fibras */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center">
+          <div className="w-12 h-12 rounded-xl bg-yellow-100 flex items-center justify-center text-yellow-600 mr-4 shrink-0">
             <ClipboardCheck className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-400 text-sm font-medium">Saídas Fibras</p>
-            <p className="text-3xl font-bold text-slate-800">{stats.totalFiberOutput.toLocaleString()}</p>
+            <p className="text-gray-400 text-xs font-bold uppercase">Saídas Fibras (Qtd)</p>
+            <p className="text-2xl font-bold text-slate-800">{stats.totalFiberOutput.toLocaleString()}</p>
           </div>
         </div>
       </div>

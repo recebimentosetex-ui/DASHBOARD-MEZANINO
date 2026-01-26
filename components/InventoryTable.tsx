@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { InventoryItem } from '../types';
-import { Download, Upload, FileSpreadsheet, Plus, Trash2, X, CheckSquare, Square, Loader2 } from 'lucide-react';
+import { Download, Upload, Plus, Trash2, CheckSquare, Square, Loader2, Pencil } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 interface InventoryTableProps {
@@ -9,6 +9,7 @@ interface InventoryTableProps {
   data: InventoryItem[];
   isLoading?: boolean;
   onAddItem: (item: Partial<InventoryItem>) => Promise<void>;
+  onUpdateItem: (id: string, item: Partial<InventoryItem>) => Promise<void>;
   onDeleteItem: (id: string) => Promise<void>;
   onBulkDelete: (ids: string[]) => Promise<void>;
   onImportData: (items: Partial<InventoryItem>[]) => Promise<void>;
@@ -19,7 +20,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   category,
   data, 
   isLoading = false,
-  onAddItem, 
+  onAddItem,
+  onUpdateItem,
   onDeleteItem,
   onBulkDelete,
   onImportData 
@@ -28,6 +30,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   
   // Estado do formulário
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
@@ -140,7 +143,31 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     }
   };
 
-  // --- Adicionar ---
+  // --- Adicionar / Editar ---
+  const handleOpenNewModal = () => {
+    setEditingId(null);
+    setFormData({ status: 'EM ESTOQUE' });
+    setIsModalOpen(true);
+  };
+
+  const handleEditClick = (item: InventoryItem) => {
+    setEditingId(item.id);
+    setFormData({
+      material: item.material,
+      qtd: item.qtd,
+      status: item.status,
+      responsavel: item.responsavel,
+      dataSaida: item.dataSaida,
+      sm: item.sm,
+      lote: item.lote,
+      sala: item.sala,
+      prateleira: item.prateleira,
+      fileira: item.fileira,
+      maquinaFornecida: item.maquinaFornecida
+    });
+    setIsModalOpen(true);
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -150,9 +177,14 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await onAddItem({ ...formData, category, qtd: Number(formData.qtd) || 0 });
+      if (editingId) {
+        await onUpdateItem(editingId, { ...formData, category, qtd: Number(formData.qtd) || 0 });
+      } else {
+        await onAddItem({ ...formData, category, qtd: Number(formData.qtd) || 0 });
+      }
       setIsModalOpen(false);
       setFormData({ status: 'EM ESTOQUE' });
+      setEditingId(null);
     } catch (error) {
       alert('Erro ao salvar.');
     } finally {
@@ -173,7 +205,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
          <div className="flex flex-wrap gap-3">
             <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx, .xls" className="hidden" />
             
-            <button onClick={() => setIsModalOpen(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm">
+            <button onClick={handleOpenNewModal} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm">
               <Plus className="w-4 h-4 mr-2" /> Novo Item
             </button>
 
@@ -226,7 +258,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>{item.status}</span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right flex justify-end gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); handleEditClick(item); }} className="p-2 bg-blue-50 text-blue-600 rounded hover:bg-blue-100">
+                      <Pencil className="w-4 h-4" />
+                    </button>
                     <button onClick={(e) => { e.stopPropagation(); handleDeleteOne(item.id); }} className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -242,24 +277,36 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Novo Item ({category})</h2>
+            <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Item' : `Novo Item (${category})`}</h2>
             <form onSubmit={handleFormSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input required name="material" placeholder="Material" className="border p-2 rounded" onChange={handleInputChange} />
-              <input required type="number" name="qtd" placeholder="Quantidade" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="lote" placeholder="Lote" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="sala" placeholder="Sala" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="prateleira" placeholder="Prateleira" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="fileira" placeholder="Fileira" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="maquinaFornecida" placeholder="Máquina Fornecida" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="responsavel" placeholder="Responsável" className="border p-2 rounded" onChange={handleInputChange} />
-              <input type="date" name="dataSaida" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="sm" placeholder="SM" className="border p-2 rounded" onChange={handleInputChange} />
-              <input name="status" placeholder="Status" list="status-list" className="border p-2 rounded" onChange={handleInputChange} defaultValue="EM ESTOQUE" />
-              <datalist id="status-list"><option value="EM ESTOQUE"/><option value="PAGO"/></datalist>
+              <input required name="material" value={formData.material || ''} placeholder="Material" className="border p-2 rounded" onChange={handleInputChange} />
+              <input required type="number" name="qtd" value={formData.qtd || ''} placeholder="Quantidade" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="lote" value={formData.lote || ''} placeholder="Lote" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="sala" value={formData.sala || ''} placeholder="Sala" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="prateleira" value={formData.prateleira || ''} placeholder="Prateleira" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="fileira" value={formData.fileira || ''} placeholder="Fileira" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="maquinaFornecida" value={formData.maquinaFornecida || ''} placeholder="Máquina Fornecida" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="responsavel" value={formData.responsavel || ''} placeholder="Responsável" className="border p-2 rounded" onChange={handleInputChange} />
+              <input type="date" name="dataSaida" value={formData.dataSaida || ''} className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="sm" value={formData.sm || ''} placeholder="SM" className="border p-2 rounded" onChange={handleInputChange} />
               
+              <div className="flex flex-col">
+                 <select 
+                   name="status" 
+                   value={formData.status || 'EM ESTOQUE'} 
+                   className="border p-2 rounded bg-white" 
+                   onChange={handleInputChange}
+                 >
+                   <option value="EM ESTOQUE">EM ESTOQUE</option>
+                   <option value="PAGO">PAGO</option>
+                 </select>
+              </div>
+
               <div className="col-span-full flex justify-end gap-2 mt-4">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600">Cancelar</button>
-                <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Salvar</button>
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                  {editingId ? 'Salvar Alterações' : 'Adicionar'}
+                </button>
               </div>
             </form>
           </div>

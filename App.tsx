@@ -75,6 +75,27 @@ const App: React.FC = () => {
     else alert('Erro ao inserir. Verifique conexão.');
   };
 
+  const handleUpdateItem = async (id: string, item: Partial<InventoryItem>) => {
+    const dbItem = {
+      category: item.category,
+      material: item.material,
+      qtd: item.qtd,
+      status: item.status,
+      responsavel: item.responsavel,
+      data_saida: item.dataSaida,
+      sm: item.sm,
+      lote: item.lote,
+      sala: item.sala,
+      prateleira: item.prateleira,
+      fileira: item.fileira,
+      maquina_fornecida: item.maquinaFornecida
+    };
+
+    const { error } = await supabase.from('inventory').update(dbItem).eq('id', id);
+    if (!error) fetchInventory();
+    else alert('Erro ao atualizar. Verifique conexão.');
+  };
+
   const handleDeleteItem = async (id: string) => {
     const { error } = await supabase.from('inventory').delete().eq('id', id);
     if (!error) setItems(prev => prev.filter(i => i.id !== id));
@@ -124,21 +145,21 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {currentTab === TabView.DASHBOARD && <Dashboard fiberData={fiberData} inkData={inkData} />}
+        {currentTab === TabView.DASHBOARD && <Dashboard fiberData={fiberData} inkData={inkData} packagingData={packagingData} />}
         
         {currentTab === TabView.INK && (
           <InventoryTable title="Estoque de Tinta" category="INK" data={inkData} isLoading={loading}
-            onAddItem={handleAddItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
+            onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
         )}
 
         {currentTab === TabView.FIBER && (
           <InventoryTable title="Estoque de Fibras" category="FIBER" data={fiberData} isLoading={loading}
-            onAddItem={handleAddItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
+            onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
         )}
 
         {currentTab === TabView.PACKAGING && (
           <InventoryTable title="Estoque de Embalagem" category="PACKAGING" data={packagingData} isLoading={loading}
-            onAddItem={handleAddItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
+            onAddItem={handleAddItem} onUpdateItem={handleUpdateItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
         )}
       </main>
     </div>
