@@ -14,13 +14,13 @@ const getEnv = (key: string) => {
 };
 
 // Configuração do cliente Supabase
-// Fallback para uma URL válida (https://...) para evitar o erro "Invalid URL" no construtor
+// Utiliza as credenciais fornecidas
 const SUPABASE_URL = getEnv('REACT_APP_SUPABASE_URL') || 
                      getEnv('NEXT_PUBLIC_SUPABASE_URL') || 
-                     'https://placeholder.supabase.co';
+                     'https://plurxwwsgxoddqpllesb.supabase.co';
 
 const SUPABASE_ANON_KEY = getEnv('REACT_APP_SUPABASE_ANON_KEY') || 
                           getEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY') || 
-                          'placeholder-key';
+                          'sb_publishable_IYBrIjctzuYTSV-1KeAc5Q_RGDbo2dI';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
