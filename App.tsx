@@ -4,15 +4,18 @@ import Dashboard from './components/Dashboard';
 import InventoryTable from './components/InventoryTable';
 import { TabView, InventoryItem } from './types';
 import { supabase } from './lib/supabase';
+import { AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // --- Buscar dados do Supabase ---
   const fetchInventory = async () => {
     setLoading(true);
+    setErrorMsg(null);
     try {
       const { data, error } = await supabase
         .from('inventory')
@@ -38,8 +41,9 @@ const App: React.FC = () => {
         maquinaFornecida: row.maquina_fornecida
       }));
       setItems(mappedData);
-    } catch (err) {
-      console.error('Erro de conexão ou tabela inexistente:', err);
+    } catch (err: any) {
+      console.error('Erro de conexão:', err);
+      setErrorMsg('Não foi possível conectar ao banco de dados. Verifique se as variáveis de ambiente (Vercel) estão configuradas e se a tabela "inventory" foi criada no Supabase.');
     } finally {
       setLoading(false);
     }
@@ -68,7 +72,7 @@ const App: React.FC = () => {
 
     const { error } = await supabase.from('inventory').insert([dbItem]);
     if (!error) fetchInventory();
-    else alert('Erro ao inserir. Verifique as chaves de API.');
+    else alert('Erro ao inserir. Verifique conexão.');
   };
 
   const handleDeleteItem = async (id: string) => {
@@ -109,6 +113,17 @@ const App: React.FC = () => {
     <div className="flex bg-gray-50 min-h-screen">
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
       <main className="flex-1 ml-64 p-2 transition-all duration-300">
+        
+        {errorMsg && (
+          <div className="m-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
+            <AlertTriangle className="w-5 h-5 mr-3" />
+            <div>
+              <p className="font-bold">Erro de Configuração</p>
+              <p className="text-sm">{errorMsg}</p>
+            </div>
+          </div>
+        )}
+
         {currentTab === TabView.DASHBOARD && <Dashboard fiberData={fiberData} inkData={inkData} />}
         
         {currentTab === TabView.INK && (

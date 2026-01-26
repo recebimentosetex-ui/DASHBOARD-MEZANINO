@@ -1,20 +1,38 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Portal de Estoque
 
-# Run and deploy your AI Studio app
+## Configuração do Banco de Dados (Supabase)
 
-This contains everything you need to run your app locally.
+Para o sistema funcionar, rode este comando no SQL Editor do Supabase:
 
-View your app in AI Studio: https://ai.studio/apps/drive/1Y3hzHvjlWWpBss7iGxwMuqEiAZWNDinu
+```sql
+create table inventory (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  category text not null,
+  material text not null,
+  qtd numeric default 0,
+  status text,
+  responsavel text,
+  data_saida text,
+  sm text,
+  lote text,
+  sala text,
+  prateleira text,
+  fileira text,
+  maquina_fornecida text
+);
 
-## Run Locally
+alter table inventory enable row level security;
 
-**Prerequisites:**  Node.js
+create policy "Acesso Publico"
+on inventory for all
+using (true)
+with check (true);
+```
 
+## Variáveis de Ambiente (Vercel)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+Configure as seguintes variáveis no seu projeto Vercel:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
