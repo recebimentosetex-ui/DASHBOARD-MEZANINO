@@ -7,12 +7,10 @@ import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
-  
-  // Application State
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // --- Supabase Data Fetching ---
+  // --- Buscar dados do Supabase ---
   const fetchInventory = async () => {
     setLoading(true);
     try {
@@ -21,28 +19,27 @@ const App: React.FC = () => {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching inventory:', error);
-      } else {
-        const mappedData: InventoryItem[] = (data || []).map((row: any) => ({
-          id: row.id,
-          category: row.category,
-          material: row.material,
-          qtd: row.qtd,
-          status: row.status,
-          responsavel: row.responsavel,
-          dataSaida: row.data_saida, // DB column -> Prop
-          sm: row.sm,
-          lote: row.lote,
-          sala: row.sala,
-          prateleira: row.prateleira,
-          fileira: row.fileira,
-          maquinaFornecida: row.maquina_fornecida // DB column -> Prop
-        }));
-        setItems(mappedData);
-      }
+      if (error) throw error;
+
+      // Mapeia os dados do banco (snake_case) para nossa interface (camelCase)
+      const mappedData: InventoryItem[] = (data || []).map((row: any) => ({
+        id: row.id,
+        category: row.category,
+        material: row.material,
+        qtd: row.qtd,
+        status: row.status,
+        responsavel: row.responsavel,
+        dataSaida: row.data_saida,
+        sm: row.sm,
+        lote: row.lote,
+        sala: row.sala,
+        prateleira: row.prateleira,
+        fileira: row.fileira,
+        maquinaFornecida: row.maquina_fornecida
+      }));
+      setItems(mappedData);
     } catch (err) {
-      console.error('Unexpected error:', err);
+      console.error('Erro de conexão ou tabela inexistente:', err);
     } finally {
       setLoading(false);
     }
@@ -52,10 +49,8 @@ const App: React.FC = () => {
     fetchInventory();
   }, []);
 
-  // --- CRUD Operations ---
-  
+  // --- CRUD Genérico ---
   const handleAddItem = async (item: Partial<InventoryItem>) => {
-    // Convert camelCase to snake_case for DB
     const dbItem = {
       category: item.category,
       material: item.material,
@@ -71,39 +66,22 @@ const App: React.FC = () => {
       maquina_fornecida: item.maquinaFornecida
     };
 
-    const { data, error } = await supabase.from('inventory').insert([dbItem]).select();
-    
-    if (error) {
-      console.error('Error adding item:', error);
-      throw error;
-    }
-
-    if (data) {
-      // Add local optimistic update or re-fetch
-      fetchInventory();
-    }
+    const { error } = await supabase.from('inventory').insert([dbItem]);
+    if (!error) fetchInventory();
+    else alert('Erro ao inserir. Verifique as chaves de API.');
   };
 
   const handleDeleteItem = async (id: string) => {
     const { error } = await supabase.from('inventory').delete().eq('id', id);
-    if (error) {
-      console.error('Error deleting item:', error);
-    } else {
-      setItems(prev => prev.filter(i => i.id !== id));
-    }
+    if (!error) setItems(prev => prev.filter(i => i.id !== id));
   };
 
   const handleBulkDelete = async (ids: string[]) => {
     const { error } = await supabase.from('inventory').delete().in('id', ids);
-    if (error) {
-      console.error('Error deleting items:', error);
-    } else {
-      setItems(prev => prev.filter(i => !ids.includes(i.id)));
-    }
+    if (!error) setItems(prev => prev.filter(i => !ids.includes(i.id)));
   };
 
   const handleImportData = async (newItems: Partial<InventoryItem>[]) => {
-    // Prepare all items for DB
     const dbItems = newItems.map(item => ({
       category: item.category,
       material: item.material,
@@ -118,78 +96,35 @@ const App: React.FC = () => {
       fileira: item.fileira,
       maquina_fornecida: item.maquinaFornecida
     }));
-
     const { error } = await supabase.from('inventory').insert(dbItems);
-    
-    if (error) {
-      console.error('Error importing items:', error);
-      alert('Erro ao importar. Verifique o console.');
-    } else {
-      fetchInventory();
-    }
+    if (!error) fetchInventory();
   };
 
-  // --- Filtering Logic ---
+  // --- Filtros por Aba ---
   const inkData = items.filter(i => i.category === 'INK');
   const fiberData = items.filter(i => i.category === 'FIBER');
   const packagingData = items.filter(i => i.category === 'PACKAGING');
 
-  const renderContent = () => {
-    switch (currentTab) {
-      case TabView.DASHBOARD:
-        return <Dashboard fiberData={fiberData} inkData={inkData} />;
-      case TabView.INK:
-        return (
-          <InventoryTable 
-            title="Estoque de Tinta" 
-            type="STANDARD" 
-            category="INK"
-            data={inkData}
-            isLoading={loading}
-            onAddItem={handleAddItem}
-            onDeleteItem={handleDeleteItem}
-            onBulkDelete={handleBulkDelete}
-            onImportData={handleImportData}
-          />
-        );
-      case TabView.FIBER:
-        return (
-          <InventoryTable 
-            title="Estoque de Fibras" 
-            type="STANDARD" 
-            category="FIBER"
-            data={fiberData}
-            isLoading={loading}
-            onAddItem={handleAddItem}
-            onDeleteItem={handleDeleteItem}
-            onBulkDelete={handleBulkDelete}
-            onImportData={handleImportData}
-          />
-        );
-      case TabView.PACKAGING:
-        return (
-          <InventoryTable 
-            title="Estoque de Embalagem" 
-            type="PACKAGING" 
-            category="PACKAGING"
-            data={packagingData}
-            isLoading={loading}
-            onAddItem={handleAddItem}
-            onDeleteItem={handleDeleteItem}
-            onBulkDelete={handleBulkDelete}
-            onImportData={handleImportData}
-          />
-        );
-      default:
-        return <Dashboard fiberData={fiberData} inkData={inkData} />;
-    }
-  };
-
   return (
     <div className="flex bg-gray-50 min-h-screen">
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
-      <main className="flex-1 ml-64 transition-all duration-300">
-        {renderContent()}
+      <main className="flex-1 ml-64 p-2 transition-all duration-300">
+        {currentTab === TabView.DASHBOARD && <Dashboard fiberData={fiberData} inkData={inkData} />}
+        
+        {currentTab === TabView.INK && (
+          <InventoryTable title="Estoque de Tinta" category="INK" data={inkData} isLoading={loading}
+            onAddItem={handleAddItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
+        )}
+
+        {currentTab === TabView.FIBER && (
+          <InventoryTable title="Estoque de Fibras" category="FIBER" data={fiberData} isLoading={loading}
+            onAddItem={handleAddItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
+        )}
+
+        {currentTab === TabView.PACKAGING && (
+          <InventoryTable title="Estoque de Embalagem" category="PACKAGING" data={packagingData} isLoading={loading}
+            onAddItem={handleAddItem} onDeleteItem={handleDeleteItem} onBulkDelete={handleBulkDelete} onImportData={handleImportData} />
+        )}
       </main>
     </div>
   );

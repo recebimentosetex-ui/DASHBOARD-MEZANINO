@@ -49,10 +49,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => {
 
       <div className="p-4 border-t border-gray-100">
         <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-4 text-white shadow-md">
-          <p className="text-xs font-semibold opacity-80 mb-1">Status do Sistema</p>
+          <p className="text-xs font-semibold opacity-80 mb-1">Sistema Conectado</p>
           <div className="flex items-center">
             <span className="w-2 h-2 rounded-full bg-green-200 mr-2 animate-pulse"></span>
-            <span className="text-sm font-bold">Online</span>
+            <span className="text-sm font-bold">Vercel + Supabase</span>
           </div>
         </div>
       </div>

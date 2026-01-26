@@ -5,7 +5,6 @@ import * as XLSX from 'xlsx';
 
 interface InventoryTableProps {
   title: string;
-  type: 'STANDARD' | 'PACKAGING';
   category: 'INK' | 'FIBER' | 'PACKAGING';
   data: InventoryItem[];
   isLoading?: boolean;
@@ -17,7 +16,6 @@ interface InventoryTableProps {
 
 const InventoryTable: React.FC<InventoryTableProps> = ({ 
   title, 
-  type, 
   category,
   data, 
   isLoading = false,
@@ -31,7 +29,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State for the new item form
+  // Estado do formulário
   const [formData, setFormData] = useState<Partial<InventoryItem>>({
     status: 'EM ESTOQUE'
   });
@@ -43,32 +41,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     return 'bg-gray-100 text-gray-700';
   };
 
-  // --- Export / Import Logic ---
-  const handleExport = () => {
-    const wb = XLSX.utils.book_new();
-    // Prepare data for export (flatten structure if needed)
-    const exportData = data.map(item => ({
-      Material: item.material,
-      Qtd: item.qtd,
-      Status: item.status,
-      Responsavel: item.responsavel,
-      DataSaida: item.dataSaida,
-      SM: item.sm,
-      ...(type === 'STANDARD' ? {
-        Lote: item.lote || '',
-        Sala: item.sala || '',
-        Prateleira: item.prateleira || '',
-        Fileira: item.fileira || '',
-        Maquina: item.maquinaFornecida || ''
-      } : {})
-    }));
-    
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    XLSX.utils.book_append_sheet(wb, ws, "Estoque");
-    const fileName = `${title.replace(/\s+/g, '_').toLowerCase()}_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-  };
-
+  // --- Importação Excel ---
   const handleImportClick = () => {
     fileInputRef.current?.click();
   };
@@ -105,13 +78,34 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         await onImportData(processedData);
         setIsSubmitting(false);
       }
-      
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
     reader.readAsArrayBuffer(file);
   };
 
-  // --- Selection Logic ---
+  // --- Exportação Excel ---
+  const handleExport = () => {
+    const wb = XLSX.utils.book_new();
+    const exportData = data.map(item => ({
+      Material: item.material,
+      Qtd: item.qtd,
+      Status: item.status,
+      Responsavel: item.responsavel,
+      DataSaida: item.dataSaida,
+      SM: item.sm,
+      Lote: item.lote || '',
+      Sala: item.sala || '',
+      Prateleira: item.prateleira || '',
+      Fileira: item.fileira || '',
+      Maquina: item.maquinaFornecida || ''
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    XLSX.utils.book_append_sheet(wb, ws, "Estoque");
+    XLSX.writeFile(wb, `${title.replace(/\s+/g, '_')}.xlsx`);
+  };
+
+  // --- Seleção ---
   const handleSelectAll = () => {
     if (selectedIds.size === data.length) {
       setSelectedIds(new Set());
@@ -122,15 +116,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
   const handleSelectOne = (id: string) => {
     const newSelected = new Set(selectedIds);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
-    } else {
-      newSelected.add(id);
-    }
+    if (newSelected.has(id)) newSelected.delete(id);
+    else newSelected.add(id);
     setSelectedIds(newSelected);
   };
 
-  // --- Delete Logic ---
+  // --- Deletar ---
   const handleDeleteOne = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir este item?')) {
       await onDeleteItem(id);
@@ -143,13 +134,13 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   };
 
   const handleBulkDelete = async () => {
-    if (window.confirm(`Tem certeza que deseja excluir ${selectedIds.size} itens?`)) {
+    if (window.confirm(`Excluir ${selectedIds.size} itens selecionados?`)) {
       await onBulkDelete(Array.from(selectedIds));
       setSelectedIds(new Set());
     }
   };
 
-  // --- Add Item Logic ---
+  // --- Adicionar ---
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -158,19 +149,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    const newItem: Partial<InventoryItem> = {
-      ...formData,
-      category: category,
-      qtd: Number(formData.qtd) || 0,
-    };
-
     try {
-      await onAddItem(newItem);
+      await onAddItem({ ...formData, category, qtd: Number(formData.qtd) || 0 });
       setIsModalOpen(false);
       setFormData({ status: 'EM ESTOQUE' });
     } catch (error) {
-      alert('Erro ao adicionar item');
+      alert('Erro ao salvar.');
     } finally {
       setIsSubmitting(false);
     }
@@ -178,141 +162,72 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
   return (
     <div className="p-8 bg-gray-50 min-h-screen relative">
-      {/* Header Actions */}
       <div className="mb-6 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
          <div>
            <div className="flex items-center gap-3">
              <h1 className="text-3xl font-bold text-slate-900">{title}</h1>
              {isLoading && <Loader2 className="w-5 h-5 animate-spin text-green-600" />}
            </div>
-           <p className="text-gray-500 mt-1">Gerencie os itens do estoque abaixo.</p>
          </div>
          
          <div className="flex flex-wrap gap-3">
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              onChange={handleFileChange} 
-              accept=".xlsx, .xls" 
-              className="hidden" 
-            />
+            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".xlsx, .xls" className="hidden" />
             
-            <button 
-              onClick={() => setIsModalOpen(true)}
-              disabled={isLoading || isSubmitting}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm disabled:opacity-50"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Item
+            <button onClick={() => setIsModalOpen(true)} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm">
+              <Plus className="w-4 h-4 mr-2" /> Novo Item
             </button>
 
             {selectedIds.size > 0 && (
-              <button 
-                onClick={handleBulkDelete}
-                disabled={isLoading || isSubmitting}
-                className="flex items-center px-4 py-2 bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors shadow-sm"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Excluir ({selectedIds.size})
+              <button onClick={handleBulkDelete} className="flex items-center px-4 py-2 bg-red-100 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-200 shadow-sm">
+                <Trash2 className="w-4 h-4 mr-2" /> Excluir ({selectedIds.size})
               </button>
             )}
 
-            <div className="h-8 w-px bg-gray-300 mx-2 hidden sm:block"></div>
-            
-            <button 
-              onClick={handleImportClick}
-              disabled={isLoading || isSubmitting}
-              className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Importar
+            <button onClick={handleImportClick} className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 shadow-sm">
+              <Upload className="w-4 h-4 mr-2" /> Importar
             </button>
             
-            <button 
-              onClick={handleExport}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors shadow-sm"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Exportar
+            <button onClick={handleExport} className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 shadow-sm">
+              <Download className="w-4 h-4 mr-2" /> Exportar
             </button>
          </div>
       </div>
 
-      {/* Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left text-gray-500">
             <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 w-4">
-                  <button onClick={handleSelectAll} className="flex items-center">
-                    {data.length > 0 && selectedIds.size === data.length ? (
-                      <CheckSquare className="w-5 h-5 text-green-600" />
-                    ) : (
-                      <Square className="w-5 h-5 text-gray-400" />
-                    )}
-                  </button>
-                </th>
+                <th className="px-6 py-4 w-4"><button onClick={handleSelectAll}><Square className="w-5 h-5 text-gray-400" /></button></th>
                 <th className="px-6 py-4 font-semibold">Material</th>
-                {type === 'STANDARD' && <th className="px-6 py-4 font-semibold">Lote</th>}
                 <th className="px-6 py-4 font-semibold">Qtd</th>
-                {type === 'STANDARD' && (
-                  <>
-                    <th className="px-6 py-4 font-semibold">Sala</th>
-                    <th className="px-6 py-4 font-semibold">Prateleira</th>
-                    <th className="px-6 py-4 font-semibold">Fileira</th>
-                    <th className="px-6 py-4 font-semibold">Máq. Forn.</th>
-                  </>
-                )}
-                <th className="px-6 py-4 font-semibold">Responsável</th>
+                <th className="px-6 py-4 font-semibold">Lote</th>
+                <th className="px-6 py-4 font-semibold">Local (Sala/Prat)</th>
+                <th className="px-6 py-4 font-semibold">Resp.</th>
                 <th className="px-6 py-4 font-semibold">Data Saída</th>
-                <th className="px-6 py-4 font-semibold">SM</th>
                 <th className="px-6 py-4 font-semibold">Status</th>
                 <th className="px-6 py-4 font-semibold text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {data.map((item) => (
-                <tr key={item.id} className={`hover:bg-gray-50 transition-colors ${selectedIds.has(item.id) ? 'bg-green-50' : ''}`}>
+                <tr key={item.id} className={`hover:bg-gray-50 ${selectedIds.has(item.id) ? 'bg-green-50' : ''}`}>
                   <td className="px-6 py-4">
-                    <button onClick={() => handleSelectOne(item.id)} className="flex items-center">
-                      {selectedIds.has(item.id) ? (
-                        <CheckSquare className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <Square className="w-5 h-5 text-gray-300 hover:text-gray-500" />
-                      )}
+                    <button onClick={() => handleSelectOne(item.id)}>
+                      {selectedIds.has(item.id) ? <CheckSquare className="w-5 h-5 text-green-600" /> : <Square className="w-5 h-5 text-gray-300" />}
                     </button>
                   </td>
                   <td className="px-6 py-4 font-medium text-gray-900">{item.material}</td>
-                  {type === 'STANDARD' && (
-                    <td className="px-6 py-4">{item.lote || '-'}</td>
-                  )}
-                  <td className="px-6 py-4 font-semibold text-slate-700">{item.qtd}</td>
-                  {type === 'STANDARD' && (
-                    <>
-                      <td className="px-6 py-4">{item.sala || '-'}</td>
-                      <td className="px-6 py-4">{item.prateleira || '-'}</td>
-                      <td className="px-6 py-4">{item.fileira || '-'}</td>
-                      <td className="px-6 py-4">{item.maquinaFornecida || '-'}</td>
-                    </>
-                  )}
+                  <td className="px-6 py-4 font-semibold">{item.qtd}</td>
+                  <td className="px-6 py-4">{item.lote || '-'}</td>
+                  <td className="px-6 py-4">{item.sala ? `${item.sala} ${item.prateleira || ''}` : '-'}</td>
                   <td className="px-6 py-4">{item.responsavel || '-'}</td>
                   <td className="px-6 py-4">{item.dataSaida || '-'}</td>
-                  <td className="px-6 py-4">{item.sm || '-'}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border border-transparent ${getStatusColor(item.status)}`}>
-                      {item.status}
-                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>{item.status}</span>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteOne(item.id);
-                      }}
-                      className="p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 hover:bg-red-100 transition-all shadow-sm"
-                      title="Excluir item permanentemente"
-                    >
+                    <button onClick={(e) => { e.stopPropagation(); handleDeleteOne(item.id); }} className="p-2 bg-red-50 text-red-600 rounded hover:bg-red-100">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </td>
@@ -320,119 +235,31 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               ))}
             </tbody>
           </table>
+          {data.length === 0 && !isLoading && <div className="p-8 text-center text-gray-400">Nenhum item encontrado.</div>}
         </div>
-        {data.length === 0 && !isLoading && (
-          <div className="flex flex-col items-center justify-center p-12 text-center text-gray-400">
-            <FileSpreadsheet className="w-12 h-12 mb-3 opacity-20" />
-            <p>Nenhum item encontrado.</p>
-            <p className="text-sm mt-1">Adicione itens manualmente ou importe uma planilha.</p>
-          </div>
-        )}
-        {isLoading && data.length === 0 && (
-           <div className="flex flex-col items-center justify-center p-12 text-center text-gray-400">
-             <Loader2 className="w-8 h-8 animate-spin text-green-600 mb-2" />
-             <p>Carregando dados...</p>
-           </div>
-        )}
       </div>
 
-      {/* Manual Add Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-slate-800">Adicionar Novo Item</h2>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleFormSubmit} className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="col-span-1 md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Material</label>
-                <input required name="material" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-              </div>
-
-              {type === 'STANDARD' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Lote</label>
-                  <input name="lote" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Quantidade</label>
-                <input required type="number" name="qtd" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-              </div>
-
-              {type === 'STANDARD' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Sala</label>
-                    <input name="sala" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Prateleira</label>
-                    <input name="prateleira" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Fileira</label>
-                    <input name="fileira" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Máq. Fornecida</label>
-                    <input name="maquinaFornecida" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-                  </div>
-                </>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
-                <input name="responsavel" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Data de Saída</label>
-                <input type="date" name="dataSaida" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">SM</label>
-                <input name="sm" className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" onChange={handleInputChange} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <input 
-                  list="status-options" 
-                  name="status" 
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 outline-none" 
-                  onChange={handleInputChange} 
-                  defaultValue="EM ESTOQUE"
-                  placeholder="Selecione ou digite..."
-                />
-                <datalist id="status-options">
-                  <option value="EM ESTOQUE" />
-                  <option value="PAGO" />
-                </datalist>
-              </div>
-
-              <div className="col-span-1 md:col-span-2 pt-4 flex justify-end gap-3 border-t border-gray-100 mt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={isSubmitting}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors shadow-sm disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Salvando...' : 'Adicionar Item'}
-                </button>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Novo Item ({category})</h2>
+            <form onSubmit={handleFormSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input required name="material" placeholder="Material" className="border p-2 rounded" onChange={handleInputChange} />
+              <input required type="number" name="qtd" placeholder="Quantidade" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="lote" placeholder="Lote" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="sala" placeholder="Sala" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="prateleira" placeholder="Prateleira" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="fileira" placeholder="Fileira" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="maquinaFornecida" placeholder="Máquina Fornecida" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="responsavel" placeholder="Responsável" className="border p-2 rounded" onChange={handleInputChange} />
+              <input type="date" name="dataSaida" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="sm" placeholder="SM" className="border p-2 rounded" onChange={handleInputChange} />
+              <input name="status" placeholder="Status" list="status-list" className="border p-2 rounded" onChange={handleInputChange} defaultValue="EM ESTOQUE" />
+              <datalist id="status-list"><option value="EM ESTOQUE"/><option value="PAGO"/></datalist>
+              
+              <div className="col-span-full flex justify-end gap-2 mt-4">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600">Cancelar</button>
+                <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Salvar</button>
               </div>
             </form>
           </div>
