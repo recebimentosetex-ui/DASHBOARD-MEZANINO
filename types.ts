@@ -10,7 +10,8 @@ export enum TabView {
 export interface InventoryItem {
   id: string; 
   category: 'INK' | 'FIBER' | 'PACKAGING';
-  material: string;
+  codigo?: string; // Novo campo para o Código do Material
+  material: string; // Usado como Descrição do Material
   qtd: number;
   status: string; // Ex: 'EM ESTOQUE', 'PAGO'
   responsavel: string;
@@ -19,9 +20,9 @@ export interface InventoryItem {
   
   // Campos opcionais (usados principalmente em Tinta e Fibra)
   lote?: string;
-  sala?: string;
+  sala?: string; // Mapeado visualmente como 'RUA'
   prateleira?: string;
-  fileira?: string;
+  fileira?: string; // Mapeado visualmente como 'POSIÇÃO'
   maquinaFornecida?: string; // Mapeado do DB: maquina_fornecida
 }
 

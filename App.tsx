@@ -20,7 +20,8 @@ const App: React.FC = () => {
       const { data, error } = await supabase
         .from('inventory')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, 1499);
 
       if (error) throw error;
 
@@ -28,6 +29,7 @@ const App: React.FC = () => {
       const mappedData: InventoryItem[] = (data || []).map((row: any) => ({
         id: row.id,
         category: row.category,
+        codigo: row.codigo, // Novo campo
         material: row.material,
         qtd: row.qtd,
         status: row.status,
@@ -57,6 +59,7 @@ const App: React.FC = () => {
   const handleAddItem = async (item: Partial<InventoryItem>) => {
     const dbItem = {
       category: item.category,
+      codigo: item.codigo,
       material: item.material,
       qtd: item.qtd,
       status: item.status,
@@ -78,6 +81,7 @@ const App: React.FC = () => {
   const handleUpdateItem = async (id: string, item: Partial<InventoryItem>) => {
     const dbItem = {
       category: item.category,
+      codigo: item.codigo,
       material: item.material,
       qtd: item.qtd,
       status: item.status,
@@ -109,6 +113,7 @@ const App: React.FC = () => {
   const handleImportData = async (newItems: Partial<InventoryItem>[]) => {
     const dbItems = newItems.map(item => ({
       category: item.category,
+      codigo: item.codigo,
       material: item.material,
       qtd: item.qtd,
       status: item.status,
@@ -135,15 +140,7 @@ const App: React.FC = () => {
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
       <main className="flex-1 ml-64 p-2 transition-all duration-300">
         
-        {errorMsg && (
-          <div className="m-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
-            <AlertTriangle className="w-5 h-5 mr-3" />
-            <div>
-              <p className="font-bold">Erro de Configuração</p>
-              <p className="text-sm">{errorMsg}</p>
-            </div>
-          </div>
-        )}
+  
 
         {currentTab === TabView.DASHBOARD && <Dashboard fiberData={fiberData} inkData={inkData} packagingData={packagingData} />}
         

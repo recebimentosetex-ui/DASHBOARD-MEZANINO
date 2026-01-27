@@ -102,36 +102,34 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData, packagingData
     return { chartData, totalCount };
   }, [fiberData]);
 
-  // Machine Stats: Top Machines - Baseado em Fibras onde STATUS = 'PAGO'
-  const machineStats = useMemo(() => {
-    const machineMap: Record<string, number> = {};
+  // Stats: Top 3 Fibras Mais Fornecidas (Count Frequency of 'PAGO')
+  const topFiberStats = useMemo(() => {
+    const fiberMap: Record<string, number> = {};
     
     fiberData.forEach(item => {
-      // Normalização para garantir match correto
       const status = item.status ? item.status.trim().toUpperCase() : '';
-      const maquina = item.maquinaFornecida ? item.maquinaFornecida.trim() : '';
+      const material = item.material ? item.material.trim() : '';
 
-      // Filtro: Tem máquina definida E status é 'PAGO'
-      if (maquina && maquina !== '-' && status === 'PAGO') {
-        machineMap[maquina] = (machineMap[maquina] || 0) + 1;
+      if (material && status === 'PAGO') {
+        fiberMap[material] = (fiberMap[material] || 0) + 1;
       }
     });
 
-    const sortedMachines = Object.keys(machineMap)
-      .map(machine => ({
-        name: machine,
-        value: machineMap[machine]
+    const sortedFibers = Object.keys(fiberMap)
+      .map(mat => ({
+        name: mat,
+        value: fiberMap[mat]
       }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 3); // Top 3
 
     // Calculate max for bar width
-    const maxVal = sortedMachines.length > 0 ? sortedMachines[0].value : 10; // Default max to avoid div by zero if empty
+    const maxVal = sortedFibers.length > 0 ? sortedFibers[0].value : 10;
 
     const barColors = ['bg-blue-500', 'bg-green-500', 'bg-yellow-500'];
 
-    return sortedMachines.map((m, i) => ({
-      ...m,
+    return sortedFibers.map((f, i) => ({
+      ...f,
       max: maxVal,
       color: barColors[i % barColors.length]
     }));
@@ -192,7 +190,7 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData, packagingData
             <ClipboardCheck className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-gray-400 text-xs font-bold uppercase">Saídas Fibras (Qtd)</p>
+            <p className="text-gray-400 text-xs font-bold uppercase">TOTAL FIBRAS FORNECIDAS(MÊS)</p>
             <p className="text-2xl font-bold text-slate-800">{stats.totalFiberOutput.toLocaleString()}</p>
           </div>
         </div>
@@ -259,30 +257,30 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData, packagingData
         {/* Right Sidebar Charts */}
         <div className="flex flex-col space-y-6">
           
-          {/* Top Machines - Agora mostrando 'PAGO' */}
+          {/* Top 3 Fibers List - Antigo Machines */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-sm font-bold text-slate-800 uppercase mb-6">Máquinas + Utilizadas (Pagos)</h3>
+            <h3 className="text-sm font-bold text-slate-800 uppercase mb-6">TOP 3 FIBRAS MAIS FORNECIDAS(MÊS)</h3>
             <div className="space-y-6">
-              {machineStats.length > 0 ? machineStats.map((machine) => (
-                <div key={machine.name}>
+              {topFiberStats.length > 0 ? topFiberStats.map((fiber) => (
+                <div key={fiber.name}>
                   <div className="flex justify-between text-sm font-bold text-slate-700 mb-2">
-                    <span>{machine.name}</span>
-                    <span>{machine.value} lotes</span>
+                    <span className="truncate pr-2">{fiber.name}</span>
+                    <span className="whitespace-nowrap">{fiber.value} lotes</span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
                     <div 
-                      className={`${machine.color} h-2 rounded-full`} 
-                      style={{ width: `${(machine.value / machine.max) * 100}%` }}
+                      className={`${fiber.color} h-2 rounded-full`} 
+                      style={{ width: `${(fiber.value / fiber.max) * 100}%` }}
                     ></div>
                   </div>
                 </div>
               )) : (
-                 <p className="text-gray-400 text-sm text-center">Nenhuma máquina com item PAGO</p>
+                 <p className="text-gray-400 text-sm text-center">Nenhuma fibra PAGO</p>
               )}
             </div>
           </div>
 
-          {/* Donut Chart - Updated: Count Frequency of 'PAGO' items */}
+          {/* Donut Chart - Fibras Pagas (Top 5) */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex-1 flex flex-col">
             <h3 className="text-sm font-bold text-slate-800 uppercase mb-4">Fibras Pagas (Top 5)</h3>
             
