@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 import InventoryTable from './components/InventoryTable';
 import { TabView, InventoryItem } from './types';
 import { supabase } from './lib/supabase';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
@@ -140,7 +140,6 @@ const App: React.FC = () => {
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
       <main className="flex-1 ml-64 p-2 transition-all duration-300">
         
-  
 
         {currentTab === TabView.DASHBOARD && <Dashboard fiberData={fiberData} inkData={inkData} packagingData={packagingData} />}
         

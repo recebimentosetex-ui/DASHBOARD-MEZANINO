@@ -295,8 +295,8 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         material: formData.material,
         qtd: formData.qtd === '' ? 0 : Number(formData.qtd),
         lote: formData.lote,
-        sala: formData.sala,
-        prateleira: category === 'PACKAGING' ? '' : formData.prateleira, // Limpa prateleira se for embalagem
+        sala: category === 'PACKAGING' ? '' : formData.sala,
+        prateleira: category === 'PACKAGING' ? '' : formData.prateleira,
         fileira: formData.fileira,
         maquinaFornecida: formData.maquinaFornecida,
         responsavel: formData.responsavel,
@@ -374,7 +374,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         qtd: Number(item.Qtd || item.qtd || 0),
         status: item.Status || 'EM ESTOQUE',
         lote: item.Lote || '',
-        sala: item.Rua || item.rua || '', 
+        sala: category === 'PACKAGING' ? '' : (item.Rua || item.rua || ''), 
         fileira: item.Posicao || item.posicao || item.Fileira || item.fileira || '', 
         prateleira: category === 'PACKAGING' ? '' : (item.Prateleira || '')
       }));
@@ -395,12 +395,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
         Descricao: item.material,
         Lote: item.lote,
         Qtd: item.qtd,
-        Rua: item.sala,
       };
       
       // Condicional para exportação também
       if (category !== 'PACKAGING') {
-        Object.assign(base, { Prateleira: item.prateleira, Posicao: item.fileira });
+        Object.assign(base, { Prateleira: item.prateleira, Posicao: item.fileira, Rua: item.sala });
       } else {
         Object.assign(base, { Fileira: item.fileira });
       }
@@ -490,7 +489,10 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 
                 <HeaderCell label={category === 'PACKAGING' ? "FILEIRA" : "POSIÇÃO"} columnKey="fileira" />
                 
-                <HeaderCell label="RUA" columnKey="sala" />
+                {category !== 'PACKAGING' && (
+                  <HeaderCell label="RUA" columnKey="sala" />
+                )}
+                
                 <HeaderCell label="DESCRIÇÃO DO MATERIAL" columnKey="material" className="min-w-[200px]" />
                 <HeaderCell label="RESPONSÁVEL PELO MATERIAL FORNECIDO" columnKey="responsavel" className="min-w-[200px]" />
                 <HeaderCell label="DATA DE SAÍDA" columnKey="dataSaida" className="min-w-[120px]" />
@@ -518,7 +520,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                   )}
                   
                   <td className="px-2 py-3">{item.fileira || '-'}</td>
-                  <td className="px-2 py-3">{item.sala || '-'}</td>
+                  
+                  {category !== 'PACKAGING' && (
+                    <td className="px-2 py-3">{item.sala || '-'}</td>
+                  )}
+
                   <td className="px-2 py-3">{item.material}</td>
                   <td className="px-2 py-3">{item.responsavel || '-'}</td>
                   <td className="px-2 py-3 text-sm">{item.dataSaida || '-'}</td>
@@ -545,7 +551,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               ))}
               {processedData.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={13} className="p-12 text-center text-gray-400">
+                  <td colSpan={category === 'PACKAGING' ? 11 : 13} className="p-12 text-center text-gray-400">
                     <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     <p>{searchTerm ? 'Nenhum item encontrado.' : 'Nenhum item cadastrado.'}</p>
                   </td>
@@ -583,10 +589,12 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 <input required type="number" name="qtd" value={formData.qtd} onChange={handleInputChange} className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 mb-1">RUA (SALA)</label>
-                <input name="sala" value={formData.sala} onChange={handleInputChange} className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" />
-              </div>
+              {category !== 'PACKAGING' && (
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1">RUA (SALA)</label>
+                  <input name="sala" value={formData.sala} onChange={handleInputChange} className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" />
+                </div>
+              )}
 
               {category !== 'PACKAGING' && (
                 <div>

@@ -259,7 +259,7 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData, packagingData
           
           {/* Top 3 Fibers List - Antigo Machines */}
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-            <h3 className="text-sm font-bold text-slate-800 uppercase mb-6">TOP 3 FIBRAS MAIS FORNECIDAS(MÊS)</h3>
+            <h3 className="text-sm font-bold text-slate-800 uppercase mb-6">TOP 3 FIBRAS MAIS FORNECIDAS (MÊS)</h3>
             <div className="space-y-6">
               {topFiberStats.length > 0 ? topFiberStats.map((fiber) => (
                 <div key={fiber.name}>
@@ -275,7 +275,7 @@ const Dashboard: React.FC<DashboardProps> = ({ fiberData, inkData, packagingData
                   </div>
                 </div>
               )) : (
-                 <p className="text-gray-400 text-sm text-center">Nenhuma fibra PAGO</p>
+                 <p className="text-gray-400 text-sm text-center">Nenhuma fibra paga encontrada</p>
               )}
             </div>
           </div>
