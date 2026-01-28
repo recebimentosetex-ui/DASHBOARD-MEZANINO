@@ -182,7 +182,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
   };
 
   // --- Header Component ---
-  const HeaderCell = ({ label, columnKey, className = "" }: { label: string, columnKey: keyof InventoryItem, className?: string }) => {
+  const HeaderCell = ({ label, columnKey, className = "", disableFilter = false }: { label: string, columnKey: keyof InventoryItem, className?: string, disableFilter?: boolean }) => {
     const uniqueValues = getUniqueValues(columnKey);
     const currentFilters = filters[columnKey];
     const isAllSelected = !currentFilters || currentFilters.length === uniqueValues.length;
@@ -193,16 +193,22 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
     return (
       <th className={`px-2 py-3 font-semibold text-xs text-gray-600 uppercase tracking-wider relative group ${className}`}>
         <div 
-          className="flex items-center justify-between hover:bg-gray-200 rounded px-2 py-1 transition-colors cursor-pointer select-none" 
-          onClick={(e) => { e.stopPropagation(); setActiveMenuColumn(isOpen ? null : columnKey); }}
+          className={`flex items-center justify-between px-2 py-1 rounded transition-colors select-none ${!disableFilter ? 'hover:bg-gray-200 cursor-pointer' : ''}`}
+          onClick={(e) => { 
+            if (disableFilter) return;
+            e.stopPropagation(); 
+            setActiveMenuColumn(isOpen ? null : columnKey); 
+          }}
         >
           <span className="truncate">{label}</span>
-          <div className={`ml-2 p-1 rounded ${isOpen || isFiltered ? 'bg-gray-300 text-slate-900' : 'text-gray-400 group-hover:text-gray-600'}`}>
-            <Filter className="w-3 h-3" />
-          </div>
+          {!disableFilter && (
+            <div className={`ml-2 p-1 rounded ${isOpen || isFiltered ? 'bg-gray-300 text-slate-900' : 'text-gray-400 group-hover:text-gray-600'}`}>
+              <Filter className="w-3 h-3" />
+            </div>
+          )}
         </div>
 
-        {isOpen && (
+        {isOpen && !disableFilter && (
           <div className="filter-menu-container absolute top-full left-0 mt-1 w-64 bg-white border border-gray-300 rounded-lg shadow-2xl z-50 text-left font-normal normal-case cursor-default" onClick={(e) => e.stopPropagation()}>
             <div className="p-2 border-b border-gray-100 space-y-1">
               <button onClick={() => handleSort('asc')} className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded">
@@ -358,6 +364,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
 
   // --- File Imports/Exports ---
   const handleImportClick = () => fileInputRef.current?.click();
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -367,21 +374,50 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
       const wb = XLSX.read(arrayBuffer, { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
       const jsonData = XLSX.utils.sheet_to_json(ws) as any[];
-      const itemsToImport = jsonData.map(item => ({
-        category,
-        codigo: item.Codigo || item.codigo || '',
-        material: item.Descricao || item.descricao || item.Material || item.material || 'Importado',
-        qtd: Number(item.Qtd || item.qtd || 0),
-        status: item.Status || 'EM ESTOQUE',
-        lote: item.Lote || '',
-        sala: category === 'PACKAGING' ? '' : (item.Rua || item.rua || ''), 
-        fileira: item.Posicao || item.posicao || item.Fileira || item.fileira || '', 
-        prateleira: category === 'PACKAGING' ? '' : (item.Prateleira || '')
-      }));
+
+      const itemsToImport = jsonData.map((row: any) => {
+        // Helper to find value by multiple possible keys (case insensitive)
+        const getVal = (possibleKeys: string[]) => {
+          const rowKeys = Object.keys(row);
+          for (const key of possibleKeys) {
+             const foundKey = rowKeys.find(k => k.toLowerCase().trim() === key.toLowerCase().trim());
+             if (foundKey) return row[foundKey];
+          }
+          return '';
+        };
+
+        return {
+          category,
+          codigo: getVal(['codigo', 'código', 'cod', 'material id']) || '',
+          material: getVal(['material', 'descricao', 'descrição', 'desc', 'produto', 'item']) || 'Importado',
+          qtd: Number(getVal(['qtd', 'quantidade', 'quant', 'amount']) || 0),
+          lote: getVal(['lote', 'batch', 'lot']) || '',
+          sala: category === 'PACKAGING' ? '' : getVal(['sala', 'rua', 'corredor', 'room']),
+          prateleira: category === 'PACKAGING' ? '' : getVal(['prateleira', 'rack', 'shelf']),
+          fileira: getVal(['fileira', 'posicao', 'posição', 'pos']),
+          responsavel: getVal(['responsavel', 'responsável', 'resp', 'operador']),
+          dataSaida: getVal(['data', 'data saida', 'data saída', 'date']),
+          sm: getVal(['sm', 's.m.', 'sm.']),
+          maquinaFornecida: getVal(['maquina', 'máquina', 'maq', 'maquina fornecida']),
+          status: getVal(['status', 'situacao', 'situação', 'state']) || 'EM ESTOQUE'
+        };
+      });
+
+      if (itemsToImport.length === 0) {
+        alert("Nenhum item encontrado na planilha ou colunas não identificadas.");
+        return;
+      }
+
       if (confirm(`Importar ${itemsToImport.length} itens?`)) {
         setIsSubmitting(true);
-        await onImportData(itemsToImport);
-        setIsSubmitting(false);
+        try {
+           await onImportData(itemsToImport);
+        } catch (e) {
+           console.error(e);
+           alert("Erro ao disparar importação.");
+        } finally {
+           setIsSubmitting(false);
+        }
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -476,28 +512,65 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                 </th>
                 
                 {/* 
-                   ORDEM SOLICITADA:
-                   ITEM (Checkbox) | MATERIAL (Código) | LOTE | QTD | PRATELEIRA? | POSIÇÃO/FILEIRA | RUA | DESCRIÇÃO DO MATERIAL | RESPONSÁVEL | DATA SAÍDA | SM | STATUS
+                   LOGIC: 
+                   If category is FIBER, show specific order.
+                   If category is PACKAGING, show specific order.
+                   Else (INK) show default order.
                 */}
-                <HeaderCell label="MATERIAL" columnKey="codigo" className="min-w-[100px]" />
-                <HeaderCell label="LOTE" columnKey="lote" />
-                <HeaderCell label="QTD" columnKey="qtd" />
-                
-                {category !== 'PACKAGING' && (
-                  <HeaderCell label="PRATELEIRA" columnKey="prateleira" />
+
+                {category === 'FIBER' ? (
+                   // FIBER SPECIFIC ORDER
+                   <>
+                     <HeaderCell label="MATERIAL" columnKey="codigo" className="min-w-[100px]" />
+                     <HeaderCell label="LOTE" columnKey="lote" />
+                     <HeaderCell label="QTD" columnKey="qtd" />
+                     <HeaderCell label="SALA" columnKey="sala" />
+                     <HeaderCell label="PRATELEIRA" columnKey="prateleira" />
+                     <HeaderCell label="FILEIRA" columnKey="fileira" />
+                     <HeaderCell label="MAQUINA FORNECIDA" columnKey="maquinaFornecida" />
+                     <HeaderCell label="RESPONSÁVEL PELO MATERIAL FORNECIDO" columnKey="responsavel" className="min-w-[200px]" />
+                     <HeaderCell label="DATA DE SAÍDA" columnKey="dataSaida" className="min-w-[120px]" />
+                     <HeaderCell label="SM" columnKey="sm" />
+                     <HeaderCell label="STATUS" columnKey="status" />
+                   </>
+                ) : category === 'PACKAGING' ? (
+                   // PACKAGING SPECIFIC ORDER
+                   <>
+                     <HeaderCell label="MATERIAL" columnKey="codigo" className="min-w-[100px]" />
+                     <HeaderCell label="LOTE" columnKey="lote" />
+                     <HeaderCell label="QTD" columnKey="qtd" />
+                     <HeaderCell label="FILEIRA" columnKey="fileira" />
+                     <HeaderCell label="RESPONSÁVEL PELO MATERIAL FORNECIDO" columnKey="responsavel" className="min-w-[200px]" />
+                     <HeaderCell label="DATA DE SAÍDA" columnKey="dataSaida" className="min-w-[120px]" />
+                     <HeaderCell label="SM" columnKey="sm" />
+                     <HeaderCell label="STATUS" columnKey="status" />
+                   </>
+                ) : (
+                   // DEFAULT ORDER (INK)
+                   <>
+                     <HeaderCell label="MATERIAL" columnKey="codigo" className="min-w-[100px]" />
+                     <HeaderCell label="LOTE" columnKey="lote" />
+                     <HeaderCell label="QTD" columnKey="qtd" />
+                     
+                     {/* Prateleira is not for Packaging in default logic, but default block is mainly for INK now */}
+                     <HeaderCell label="PRATELEIRA" columnKey="prateleira" />
+                     
+                     <HeaderCell label="POSIÇÃO" columnKey="fileira" />
+                     
+                     <HeaderCell label="RUA" columnKey="sala" />
+                     
+                     <HeaderCell 
+                       label="DESCRIÇÃO DO MATERIAL" 
+                       columnKey="material" 
+                       className="min-w-[200px]"
+                     />
+
+                     <HeaderCell label="RESPONSÁVEL PELO MATERIAL FORNECIDO" columnKey="responsavel" className="min-w-[200px]" />
+                     <HeaderCell label="DATA DE SAÍDA" columnKey="dataSaida" className="min-w-[120px]" />
+                     <HeaderCell label="SM" columnKey="sm" />
+                     <HeaderCell label="STATUS" columnKey="status" />
+                   </>
                 )}
-                
-                <HeaderCell label={category === 'PACKAGING' ? "FILEIRA" : "POSIÇÃO"} columnKey="fileira" />
-                
-                {category !== 'PACKAGING' && (
-                  <HeaderCell label="RUA" columnKey="sala" />
-                )}
-                
-                <HeaderCell label="DESCRIÇÃO DO MATERIAL" columnKey="material" className="min-w-[200px]" />
-                <HeaderCell label="RESPONSÁVEL PELO MATERIAL FORNECIDO" columnKey="responsavel" className="min-w-[200px]" />
-                <HeaderCell label="DATA DE SAÍDA" columnKey="dataSaida" className="min-w-[120px]" />
-                <HeaderCell label="SM" columnKey="sm" />
-                <HeaderCell label="STATUS" columnKey="status" />
 
                 <th className="px-4 py-3 font-semibold text-xs text-gray-600 uppercase tracking-wider text-right">AÇÕES</th>
               </tr>
@@ -511,31 +584,72 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
                     </button>
                   </td>
 
-                  <td className="px-2 py-3 font-medium text-gray-900">{item.codigo || '-'}</td>
-                  <td className="px-2 py-3">{item.lote || '-'}</td>
-                  <td className="px-2 py-3 font-semibold text-slate-700">{item.qtd}</td>
-                  
-                  {category !== 'PACKAGING' && (
-                    <td className="px-2 py-3">{item.prateleira || '-'}</td>
-                  )}
-                  
-                  <td className="px-2 py-3">{item.fileira || '-'}</td>
-                  
-                  {category !== 'PACKAGING' && (
-                    <td className="px-2 py-3">{item.sala || '-'}</td>
-                  )}
+                  {category === 'FIBER' ? (
+                     // FIBER ROW ORDER
+                     <>
+                        <td className="px-2 py-3 font-medium text-gray-900">{item.codigo || '-'}</td>
+                        <td className="px-2 py-3">{item.lote || '-'}</td>
+                        <td className="px-2 py-3 font-semibold text-slate-700">{item.qtd}</td>
+                        <td className="px-2 py-3">{item.sala || '-'}</td>
+                        <td className="px-2 py-3">{item.prateleira || '-'}</td>
+                        <td className="px-2 py-3">{item.fileira || '-'}</td>
+                        <td className="px-2 py-3">{item.maquinaFornecida || '-'}</td>
+                        <td className="px-2 py-3">{item.responsavel || '-'}</td>
+                        <td className="px-2 py-3 text-sm">{item.dataSaida || '-'}</td>
+                        <td className="px-2 py-3">{item.sm || '-'}</td>
+                        <td className="px-2 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-bold 
+                            ${item.status === 'EM ESTOQUE' ? 'bg-green-100 text-green-700' : 
+                              item.status === 'PAGO' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                     </>
+                  ) : category === 'PACKAGING' ? (
+                     // PACKAGING ROW ORDER
+                     <>
+                        <td className="px-2 py-3 font-medium text-gray-900">{item.codigo || '-'}</td>
+                        <td className="px-2 py-3">{item.lote || '-'}</td>
+                        <td className="px-2 py-3 font-semibold text-slate-700">{item.qtd}</td>
+                        <td className="px-2 py-3">{item.fileira || '-'}</td>
+                        <td className="px-2 py-3">{item.responsavel || '-'}</td>
+                        <td className="px-2 py-3 text-sm">{item.dataSaida || '-'}</td>
+                        <td className="px-2 py-3">{item.sm || '-'}</td>
+                        <td className="px-2 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-bold 
+                            ${item.status === 'EM ESTOQUE' ? 'bg-green-100 text-green-700' : 
+                              item.status === 'PAGO' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                     </>
+                  ) : (
+                     // DEFAULT ROW ORDER (INK)
+                     <>
+                        <td className="px-2 py-3 font-medium text-gray-900">{item.codigo || '-'}</td>
+                        <td className="px-2 py-3">{item.lote || '-'}</td>
+                        <td className="px-2 py-3 font-semibold text-slate-700">{item.qtd}</td>
+                        
+                        <td className="px-2 py-3">{item.prateleira || '-'}</td>
+                        
+                        <td className="px-2 py-3">{item.fileira || '-'}</td>
+                        
+                        <td className="px-2 py-3">{item.sala || '-'}</td>
 
-                  <td className="px-2 py-3">{item.material}</td>
-                  <td className="px-2 py-3">{item.responsavel || '-'}</td>
-                  <td className="px-2 py-3 text-sm">{item.dataSaida || '-'}</td>
-                  <td className="px-2 py-3">{item.sm || '-'}</td>
-                  <td className="px-2 py-3">
-                    <span className={`px-2 py-1 rounded text-xs font-bold 
-                      ${item.status === 'EM ESTOQUE' ? 'bg-green-100 text-green-700' : 
-                        item.status === 'PAGO' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
-                      {item.status}
-                    </span>
-                  </td>
+                        <td className="px-2 py-3">{item.material}</td>
+
+                        <td className="px-2 py-3">{item.responsavel || '-'}</td>
+                        <td className="px-2 py-3 text-sm">{item.dataSaida || '-'}</td>
+                        <td className="px-2 py-3">{item.sm || '-'}</td>
+                        <td className="px-2 py-3">
+                          <span className={`px-2 py-1 rounded text-xs font-bold 
+                            ${item.status === 'EM ESTOQUE' ? 'bg-green-100 text-green-700' : 
+                              item.status === 'PAGO' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>
+                            {item.status}
+                          </span>
+                        </td>
+                     </>
+                  )}
 
                   <td className="px-2 py-3 text-right">
                     <div className="flex justify-end gap-2">
@@ -551,7 +665,7 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               ))}
               {processedData.length === 0 && !isLoading && (
                 <tr>
-                  <td colSpan={category === 'PACKAGING' ? 11 : 13} className="p-12 text-center text-gray-400">
+                  <td colSpan={category === 'PACKAGING' ? 10 : 13} className="p-12 text-center text-gray-400">
                     <Search className="w-12 h-12 mx-auto mb-4 opacity-20" />
                     <p>{searchTerm ? 'Nenhum item encontrado.' : 'Nenhum item cadastrado.'}</p>
                   </td>
@@ -606,6 +720,11 @@ const InventoryTable: React.FC<InventoryTableProps> = ({
               <div>
                 <label className="block text-xs font-bold text-gray-500 mb-1">{category === 'PACKAGING' ? "FILEIRA" : "POSIÇÃO (FILEIRA)"}</label>
                 <input name="fileira" value={formData.fileira} onChange={handleInputChange} className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 mb-1">MÁQUINA FORNECIDA</label>
+                <input name="maquinaFornecida" value={formData.maquinaFornecida} onChange={handleInputChange} className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-green-500 outline-none" />
               </div>
 
               <div className="lg:col-span-2">

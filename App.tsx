@@ -4,18 +4,15 @@ import Dashboard from './components/Dashboard';
 import InventoryTable from './components/InventoryTable';
 import { TabView, InventoryItem } from './types';
 import { supabase } from './lib/supabase';
-import { AlertTriangle, X } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabView>(TabView.DASHBOARD);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // --- Buscar dados do Supabase ---
   const fetchInventory = async () => {
     setLoading(true);
-    setErrorMsg(null);
     try {
       const { data, error } = await supabase
         .from('inventory')
@@ -45,7 +42,7 @@ const App: React.FC = () => {
       setItems(mappedData);
     } catch (err: any) {
       console.error('Erro de conexão:', err);
-      setErrorMsg('Não foi possível conectar ao banco de dados. Verifique se as variáveis de ambiente (Vercel) estão configuradas e se a tabela "inventory" foi criada no Supabase.');
+      // Visual error message removed as requested
     } finally {
       setLoading(false);
     }
@@ -74,8 +71,12 @@ const App: React.FC = () => {
     };
 
     const { error } = await supabase.from('inventory').insert([dbItem]);
-    if (!error) fetchInventory();
-    else alert('Erro ao inserir. Verifique conexão.');
+    if (error) {
+      console.error('Erro ao adicionar:', error);
+      alert('Erro ao adicionar: ' + error.message);
+    } else {
+      fetchInventory();
+    }
   };
 
   const handleUpdateItem = async (id: string, item: Partial<InventoryItem>) => {
@@ -96,18 +97,24 @@ const App: React.FC = () => {
     };
 
     const { error } = await supabase.from('inventory').update(dbItem).eq('id', id);
-    if (!error) fetchInventory();
-    else alert('Erro ao atualizar. Verifique conexão.');
+    if (error) {
+      console.error('Erro ao atualizar:', error);
+      alert('Erro ao atualizar: ' + error.message);
+    } else {
+      fetchInventory();
+    }
   };
 
   const handleDeleteItem = async (id: string) => {
     const { error } = await supabase.from('inventory').delete().eq('id', id);
     if (!error) setItems(prev => prev.filter(i => i.id !== id));
+    else alert(`Erro ao excluir: ${error.message}`);
   };
 
   const handleBulkDelete = async (ids: string[]) => {
     const { error } = await supabase.from('inventory').delete().in('id', ids);
     if (!error) setItems(prev => prev.filter(i => !ids.includes(i.id)));
+    else alert(`Erro ao excluir em massa: ${error.message}`);
   };
 
   const handleImportData = async (newItems: Partial<InventoryItem>[]) => {
@@ -126,8 +133,15 @@ const App: React.FC = () => {
       fileira: item.fileira,
       maquina_fornecida: item.maquinaFornecida
     }));
+    
     const { error } = await supabase.from('inventory').insert(dbItems);
-    if (!error) fetchInventory();
+    if (!error) {
+      fetchInventory();
+      alert('Importação realizada com sucesso!');
+    } else {
+      console.error("Erro Import:", error);
+      alert(`Erro na importação: ${error.message}`);
+    }
   };
 
   // --- Filtros por Aba ---
@@ -140,7 +154,6 @@ const App: React.FC = () => {
       <Sidebar currentTab={currentTab} onTabChange={setCurrentTab} />
       <main className="flex-1 ml-64 p-2 transition-all duration-300">
         
-
         {currentTab === TabView.DASHBOARD && <Dashboard fiberData={fiberData} inkData={inkData} packagingData={packagingData} />}
         
         {currentTab === TabView.INK && (
